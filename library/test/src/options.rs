@@ -38,6 +38,15 @@ pub enum OutputFormat {
     Junit,
 }
 
+impl OutputFormat {
+    pub(crate) fn is_programmatic(&self) -> bool {
+        match self {
+            Self::Pretty | Self::Terse => false,
+            Self::Json | Self::Junit => true,
+        }
+    }
+}
+
 /// Whether ignored test should be run or not
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum RunIgnored {
