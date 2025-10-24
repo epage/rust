@@ -126,8 +126,7 @@ impl<'a> BuildDocTestBuilder<'a> {
                     None
                 }
             })
-            .or(can_merge_doctests_default)
-            .unwrap_or(true);
+            .or(can_merge_doctests_default);
 
         let result = rustc_driver::catch_fatal_errors(|| {
             rustc_span::create_session_if_not_set_then(edition, |_| {
@@ -164,12 +163,18 @@ impl<'a> BuildDocTestBuilder<'a> {
         debug!("after:\n{everything_else}");
 
         // If it contains `#[feature]` or `#[no_std]`, we don't want it to be merged either.
-        let can_be_merged = can_merge_doctests
-            && !has_global_allocator
-            && crate_attrs.is_empty()
+        let can_be_merged = can_merge_doctests.or_else(|| {
+            if has_global_allocator
+            || !crate_attrs.is_empty()
             // If this is a merged doctest and a defined macro uses `$crate`, then the path will
             // not work, so better not put it into merged doctests.
-            && !(has_macro_def && everything_else.contains("$crate"));
+            || has_macro_def && everything_else.contains("$crate")
+            {
+                Some(false)
+            } else {
+                None
+            }
+        });
         DocTestBuilder {
             supports_color,
             has_main_fn,
@@ -201,7 +206,7 @@ pub(crate) struct DocTestBuilder {
     pub(crate) everything_else: String,
     pub(crate) test_id: Option<String>,
     pub(crate) invalid_ast: bool,
-    pub(crate) can_be_merged: bool,
+    pub(crate) can_be_merged: Option<bool>,
 }
 
 /// Contains needed information for doctest to be correctly generated with expected "wrapping".
@@ -298,7 +303,7 @@ impl DocTestBuilder {
             already_has_extern_crate: false,
             test_id,
             invalid_ast: true,
-            can_be_merged: false,
+            can_be_merged: Some(false),
         }
     }
 

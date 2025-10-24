@@ -1029,7 +1029,7 @@ impl CreateRunnableDocTests {
             .lang_str(&scraped_test.langstr)
             .span(scraped_test.span)
             .build(dcx);
-        let is_standalone = !doctest.can_be_merged
+        let is_standalone = doctest.can_be_merged.unwrap_or(true)
             || self.rustdoc_options.no_capture
             || self.rustdoc_options.test_args.iter().any(|arg| arg == "--show-output");
         if is_standalone {
