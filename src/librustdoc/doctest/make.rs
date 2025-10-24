@@ -41,7 +41,7 @@ pub(crate) struct BuildDocTestBuilder<'a> {
     source: &'a str,
     crate_name: Option<&'a str>,
     edition: Edition,
-    can_merge_doctests: bool,
+    can_merge_doctests_default: Option<bool>,
     // If `test_id` is `None`, it means we're generating code for a code example "run" link.
     test_id: Option<String>,
     lang_str: Option<&'a LangString>,
@@ -55,7 +55,7 @@ impl<'a> BuildDocTestBuilder<'a> {
             source,
             crate_name: None,
             edition: DEFAULT_EDITION,
-            can_merge_doctests: false,
+            can_merge_doctests_default: Some(false),
             test_id: None,
             lang_str: None,
             span: DUMMY_SP,
@@ -69,9 +69,10 @@ impl<'a> BuildDocTestBuilder<'a> {
         self
     }
 
+    /// Merge behavior when no attributes say what to do
     #[inline]
-    pub(crate) fn can_merge_doctests(mut self, can_merge_doctests: bool) -> Self {
-        self.can_merge_doctests = can_merge_doctests;
+    pub(crate) fn can_merge_doctests_default(mut self, default: Option<bool>) -> Self {
+        self.can_merge_doctests_default = default;
         self
     }
 
@@ -110,17 +111,23 @@ impl<'a> BuildDocTestBuilder<'a> {
             source,
             crate_name,
             edition,
-            can_merge_doctests,
+            can_merge_doctests_default,
             // If `test_id` is `None`, it means we're generating code for a code example "run" link.
             test_id,
             lang_str,
             span,
             global_crate_attrs,
         } = self;
-        let can_merge_doctests = can_merge_doctests
-            && lang_str.is_some_and(|lang_str| {
-                !lang_str.compile_fail && !lang_str.test_harness && !lang_str.standalone_crate
-            });
+        let can_merge_doctests = lang_str
+            .and_then(|lang_str| {
+                if lang_str.compile_fail || lang_str.test_harness || lang_str.standalone_crate {
+                    Some(false)
+                } else {
+                    None
+                }
+            })
+            .or(can_merge_doctests_default)
+            .unwrap_or(true);
 
         let result = rustc_driver::catch_fatal_errors(|| {
             rustc_span::create_session_if_not_set_then(edition, |_| {

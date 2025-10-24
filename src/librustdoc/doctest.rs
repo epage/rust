@@ -977,12 +977,13 @@ struct CreateRunnableDocTests {
     visited_tests: FxHashMap<(String, usize), usize>,
     unused_extern_reports: Arc<Mutex<Vec<UnusedExterns>>>,
     compiling_test_count: AtomicUsize,
-    can_merge_doctests: bool,
+    can_merge_doctests_default: Option<bool>,
 }
 
 impl CreateRunnableDocTests {
     fn new(rustdoc_options: RustdocOptions, opts: GlobalTestOptions) -> CreateRunnableDocTests {
-        let can_merge_doctests = rustdoc_options.edition >= Edition::Edition2024;
+        let can_merge_doctests_default =
+            if rustdoc_options.edition >= Edition::Edition2024 { None } else { Some(false) };
         CreateRunnableDocTests {
             standalone_tests: Vec::new(),
             mergeable_tests: FxIndexMap::default(),
@@ -991,7 +992,7 @@ impl CreateRunnableDocTests {
             visited_tests: FxHashMap::default(),
             unused_extern_reports: Default::default(),
             compiling_test_count: AtomicUsize::new(0),
-            can_merge_doctests,
+            can_merge_doctests_default,
         }
     }
 
@@ -1023,7 +1024,7 @@ impl CreateRunnableDocTests {
             .crate_name(&self.opts.crate_name)
             .global_crate_attrs(scraped_test.global_crate_attrs.clone())
             .edition(edition)
-            .can_merge_doctests(self.can_merge_doctests)
+            .can_merge_doctests_default(self.can_merge_doctests_default)
             .test_id(test_id)
             .lang_str(&scraped_test.langstr)
             .span(scraped_test.span)
