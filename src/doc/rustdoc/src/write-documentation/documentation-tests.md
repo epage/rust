@@ -441,6 +441,14 @@ should not be merged with the others. So the previous code should use it:
 In this case, it means that the line information will not change if you add/remove other
 doctests.
 
+To merge doctests in previous editions,
+you can use the `merged_crate` attribute:
+```rust
+//! ```merged_crate
+/// assert!(true);
+//! ```
+```
+
 ### Ignoring targets
 
 Attributes starting with `ignore-` can be used to ignore doctests for specific

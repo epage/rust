@@ -831,6 +831,7 @@ pub(crate) struct LangString {
     pub(crate) rust: bool,
     pub(crate) test_harness: bool,
     pub(crate) compile_fail: bool,
+    pub(crate) merged_crate: bool,
     pub(crate) standalone_crate: bool,
     pub(crate) error_codes: Vec<String>,
     pub(crate) edition: Option<Edition>,
@@ -1153,6 +1154,7 @@ impl Default for LangString {
             rust: true,
             test_harness: false,
             compile_fail: false,
+            merged_crate: false,
             standalone_crate: false,
             error_codes: Vec::new(),
             edition: None,
@@ -1218,6 +1220,10 @@ impl LangString {
                         seen_rust_tags = !seen_other_tags || seen_rust_tags;
                         data.no_run = true;
                     }
+                    LangStringToken::LangToken("merged_crate") => {
+                        data.merged_crate = true;
+                        seen_rust_tags = !seen_other_tags || seen_rust_tags;
+                    }
                     LangStringToken::LangToken("standalone_crate") => {
                         data.standalone_crate = true;
                         seen_rust_tags = !seen_other_tags || seen_rust_tags;
@@ -1271,6 +1277,9 @@ impl LangString {
                                 "use `test_harness` to run functions marked `#[test]` instead of a \
                                 potentially-implicit `main` function",
                             ),
+                            "merged_crate" => {
+                                Some("use `merged_crate` to compile this code block with others")
+                            }
                             "standalone" | "standalone_crate" | "standalone-crate"
                                 if extra.sp.at_least_rust_2024() =>
                             {

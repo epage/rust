@@ -336,6 +336,8 @@ pub(crate) fn run_tests(
     let mut times = MergedDoctestTimes::new();
     let target_str = rustdoc_options.target.to_string();
 
+    let mut force_merged_tests = FxIndexMap::new();
+
     for (MergeableTestKey { edition, global_crate_attrs_hash }, mut doctests) in mergeable_tests {
         if doctests.is_empty() {
             continue;
@@ -372,20 +374,64 @@ pub(crate) fn run_tests(
         // `standalone_tests` doctests.
         debug!("Failed to compile compatible doctests for edition {} all at once", edition);
         for (doctest, scraped_test) in doctests {
-            doctest.generate_unique_doctest(
-                &scraped_test.text,
-                scraped_test.langstr.test_harness,
-                &opts,
-                Some(&opts.crate_name),
-            );
-            standalone_tests.push(generate_test_desc_and_fn(
-                doctest,
-                scraped_test,
-                opts.clone(),
-                Arc::clone(rustdoc_options),
-                unused_extern_reports.clone(),
-            ));
+            if doctest.can_be_merged == Some(true) {
+                force_merged_tests
+                    .entry(MergeableTestKey { edition, global_crate_attrs_hash })
+                    .or_default()
+                    .push((doctest, scraped_test));
+            } else {
+                doctest.generate_unique_doctest(
+                    &scraped_test.text,
+                    scraped_test.langstr.test_harness,
+                    &opts,
+                    Some(&opts.crate_name),
+                );
+                standalone_tests.push(generate_test_desc_and_fn(
+                    doctest,
+                    scraped_test,
+                    opts.clone(),
+                    Arc::clone(rustdoc_options),
+                    unused_extern_reports.clone(),
+                ));
+            }
         }
+    }
+
+    for (MergeableTestKey { edition, global_crate_attrs_hash }, mut doctests) in force_merged_tests
+    {
+        if doctests.is_empty() {
+            continue;
+        }
+        doctests.sort_by(|(_, a), (_, b)| a.name.cmp(&b.name));
+
+        let mut tests_runner = runner::DocTestRunner::new();
+
+        let rustdoc_test_options = IndividualTestOptions::new(
+            rustdoc_options,
+            &Some(format!("merged_doctest_{edition}_{global_crate_attrs_hash}")),
+            PathBuf::from(format!("doctest_{edition}_{global_crate_attrs_hash}.rs")),
+        );
+
+        for (doctest, scraped_test) in &doctests {
+            tests_runner.add_test(doctest, scraped_test, &target_str);
+        }
+        let (duration, ret) = tests_runner.run_merged_tests(
+            rustdoc_test_options,
+            edition,
+            &opts,
+            &test_args,
+            rustdoc_options,
+        );
+        times.add_compilation_time(duration);
+        if let Ok(success) = ret {
+            ran_edition_tests += 1;
+            if !success {
+                nb_errors += 1;
+            }
+            continue;
+        }
+
+        // TODO
     }
 
     // We need to call `test_main` even if there is no doctest to run to get the output

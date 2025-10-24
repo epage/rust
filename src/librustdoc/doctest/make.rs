@@ -122,6 +122,8 @@ impl<'a> BuildDocTestBuilder<'a> {
             .and_then(|lang_str| {
                 if lang_str.compile_fail || lang_str.test_harness || lang_str.standalone_crate {
                     Some(false)
+                } else if lang_str.merged_doctest {
+                    Some(true)
                 } else {
                     None
                 }
